@@ -4,6 +4,8 @@ import '../services/db_helper.dart';
 import '../models/transaction.dart';
 import '../widgets/add_transaction_widget.dart';
 import '../widgets/main_drawer.dart';
+import '../services/notification_service.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -19,6 +21,52 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _refreshData();
+    _initNotificationService();
+  }
+
+  void _initNotificationService() async {
+    final service = NotificationService();
+    bool granted = await NotificationListenerService.isPermissionGranted();
+    if (!granted) {
+      if (!mounted) return;
+      
+      bool? request = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Otomatik Banka Takibi"),
+          content: const Text("Yapı Kredi bildirimlerini otomatik olarak harcama olarak eklemek için bildirim erişimi izni vermeniz gerekmektedir."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false), 
+              child: const Text("Daha Sonra")
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true), 
+              child: const Text("Ayarlara Git", style: TextStyle(fontWeight: FontWeight.bold))
+            ),
+          ],
+        ),
+      );
+      
+      if (request == true) {
+        await NotificationListenerService.requestPermission();
+      }
+    }
+    
+    service.onTransactionAdded.listen((_) {
+      if (mounted) {
+        _refreshData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Yeni bir işlem otomatik olarak eklendi!"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+
+    service.startListening();
   }
 
   void _refreshData() async {
