@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/db_helper.dart';
 import '../widgets/main_drawer.dart';
+import '../widgets/budget_bar_widget.dart';
 import '../models/transaction.dart';
 import '../widgets/add_transaction_widget.dart';
 
@@ -100,6 +101,12 @@ class _MonthlyViewScreenState extends State<MonthlyViewScreen> {
         ? const Center(child: CircularProgressIndicator())
         : Column(
             children: [
+              BudgetBarWidget(
+                isWeekly: false,
+                year: _currentDate.year,
+                month: _currentDate.month,
+                onSettingsChanged: _fetchData,
+              ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: GridView.builder(

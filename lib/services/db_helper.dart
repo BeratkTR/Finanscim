@@ -18,11 +18,25 @@ class DbHelper {
     final path = join(dbPath, filePath);
     return await sql.openDatabase(
       path, 
-      version: 2, 
+      version: 4, 
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE transactions ADD COLUMN color INTEGER DEFAULT 4279543167');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS budget_settings (
+              id INTEGER PRIMARY KEY,
+              monthly_budget REAL DEFAULT 0,
+              warning_percentage INTEGER DEFAULT 80,
+              payment_cycle_day INTEGER DEFAULT 1
+            )
+          ''');
+          await db.insert('budget_settings', {'id': 1, 'monthly_budget': 0, 'warning_percentage': 80, 'payment_cycle_day': 1});
+        }
+        if (oldVersion == 3) {
+          await db.execute('ALTER TABLE budget_settings ADD COLUMN payment_cycle_day INTEGER DEFAULT 1');
         }
       },
     );
@@ -30,6 +44,15 @@ class DbHelper {
 
   Future _createDB(sql.Database db, int version) async {
     await db.execute('CREATE TABLE transactions (id TEXT PRIMARY KEY, title TEXT, amount REAL, date TEXT, color INTEGER DEFAULT 4279543167)');
+    await db.execute('''
+      CREATE TABLE budget_settings (
+        id INTEGER PRIMARY KEY,
+        monthly_budget REAL DEFAULT 0,
+        warning_percentage INTEGER DEFAULT 80,
+        payment_cycle_day INTEGER DEFAULT 1
+      )
+    ''');
+    await db.insert('budget_settings', {'id': 1, 'monthly_budget': 0, 'warning_percentage': 80, 'payment_cycle_day': 1});
   }
 
   Future<void> insertTransaction(Transaction t) async {
@@ -37,7 +60,7 @@ class DbHelper {
     await db.insert('transactions', t.toMap());
   }
 
-  // Mevcut haftanın tüm günlerini (Pzt-Paz) getirir
+  // Mevcut haftanın günlerini getirir (sadece bu ay içindekiler)
   Future<List<Map<String, dynamic>>> getWeeklySummary() async {
     final db = await instance.database;
     final List<Map<String, dynamic>> result = await db.query('transactions');
@@ -59,6 +82,12 @@ class DbHelper {
     List<Map<String, dynamic>> summary = [];
     for (int i = 0; i < 7; i++) {
       DateTime date = monday.add(Duration(days: i));
+      
+      // Sadece bu aydaki günleri ekle
+      if (date.month != now.month || date.year != now.year) {
+        continue;
+      }
+      
       String dateStr = date.toIso8601String().split('T')[0];
       
       List<Transaction> items = grouped[dateStr] ?? [];
@@ -121,5 +150,96 @@ class DbHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<Map<String, dynamic>> getBudgetSettings() async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> result = await db.query('budget_settings', where: 'id = ?', whereArgs: [1]);
+    if (result.isEmpty) {
+      return {'monthly_budget': 0.0, 'warning_percentage': 80};
+    }
+    return {
+      'monthly_budget': (result[0]['monthly_budget'] as num).toDouble(),
+      'warning_percentage': result[0]['warning_percentage'] as int,
+    };
+  }
+
+  Future<void> updateBudgetSettings(double monthlyBudget, int warningPercentage) async {
+    final db = await instance.database;
+    await db.update(
+      'budget_settings',
+      {
+        'monthly_budget': monthlyBudget, 
+        'warning_percentage': warningPercentage,
+      },
+      where: 'id = ?',
+      whereArgs: [1],
+    );
+  }
+
+  int getDaysInMonth(int year, int month) {
+    return DateTime(year, month + 1, 0).day;
+  }
+
+  Map<String, DateTime> getCurrentWeekInMonth() {
+    DateTime now = DateTime.now();
+    DateTime monday = now.subtract(Duration(days: now.weekday - 1));
+    DateTime sunday = monday.add(const Duration(days: 6));
+    
+    DateTime monthStart = DateTime(now.year, now.month, 1);
+    DateTime monthEnd = DateTime(now.year, now.month + 1, 0);
+    
+    DateTime weekStart = monday.isBefore(monthStart) ? monthStart : monday;
+    DateTime weekEnd = sunday.isAfter(monthEnd) ? monthEnd : sunday;
+    
+    return {'start': weekStart, 'end': weekEnd};
+  }
+
+  int getDaysInCurrentWeek() {
+    final week = getCurrentWeekInMonth();
+    return week['end']!.difference(week['start']!).inDays + 1;
+  }
+
+  Future<double> getWeeklyTotal() async {
+    final db = await instance.database;
+    final week = getCurrentWeekInMonth();
+    
+    String startDate = week['start']!.toIso8601String().split('T')[0];
+    String endDate = week['end']!.toIso8601String().split('T')[0];
+    
+    final result = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM transactions WHERE date >= ? AND date <= ?',
+      [startDate, endDate],
+    );
+    
+    if (result.isNotEmpty && result[0]['total'] != null) {
+      return (result[0]['total'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  double calculateWeeklyBudget(double monthlyBudget) {
+    DateTime now = DateTime.now();
+    int daysInMonth = getDaysInMonth(now.year, now.month);
+    int daysInWeek = getDaysInCurrentWeek();
+    double dailyBudget = monthlyBudget / daysInMonth;
+    return dailyBudget * daysInWeek;
+  }
+
+  Future<double> getMonthlyTotal(int year, int month) async {
+    final db = await instance.database;
+    String monthStr = month < 10 ? '0$month' : '$month';
+    String start = '$year-$monthStr-01';
+    String end = '$year-$monthStr-31';
+    
+    final result = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM transactions WHERE date >= ? AND date <= ?',
+      [start, end],
+    );
+    
+    if (result.isNotEmpty && result[0]['total'] != null) {
+      return (result[0]['total'] as num).toDouble();
+    }
+    return 0.0;
   }
 }

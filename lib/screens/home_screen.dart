@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/bar_chart_widget.dart';
+import '../widgets/budget_bar_widget.dart';
 import '../services/db_helper.dart';
 import '../models/transaction.dart';
 import '../widgets/add_transaction_widget.dart';
@@ -16,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _summary = [];
   List<Transaction> _selectedDayItems = [];
   String? _selectedDateLabel;
+  final GlobalKey<State<BudgetBarWidget>> _budgetBarKey = GlobalKey();
 
   @override
   void initState() {
@@ -98,6 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: const MainDrawer(currentRoute: 'home'),
       body: Column(
         children: [
+          BudgetBarWidget(
+            key: _budgetBarKey,
+            isWeekly: true,
+            onSettingsChanged: _refreshData,
+          ),
           RepaintBoundary(
             child: WeeklyBarChart(summaryData: _summary, onBarTap: _loadDailyDetails),
           ),
