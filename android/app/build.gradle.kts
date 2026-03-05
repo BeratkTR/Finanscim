@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.z"
+    namespace = "com.example.finanscim"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
