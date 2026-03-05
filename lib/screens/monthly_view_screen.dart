@@ -18,6 +18,7 @@ class _MonthlyViewScreenState extends State<MonthlyViewScreen> {
   bool _isLoading = true;
   List<Transaction> _selectedDayItems = [];
   String? _selectedDateLabel;
+  int _budgetRefreshKey = 0;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _MonthlyViewScreenState extends State<MonthlyViewScreen> {
       _isLoading = false;
       _selectedDayItems = [];
       _selectedDateLabel = null;
+      _budgetRefreshKey++;
     });
   }
 
@@ -106,6 +108,7 @@ class _MonthlyViewScreenState extends State<MonthlyViewScreen> {
                 year: _currentDate.year,
                 month: _currentDate.month,
                 onSettingsChanged: _fetchData,
+                refreshKey: _budgetRefreshKey,
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),

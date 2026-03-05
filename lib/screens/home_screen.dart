@@ -17,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _summary = [];
   List<Transaction> _selectedDayItems = [];
   String? _selectedDateLabel;
-  final GlobalKey<State<BudgetBarWidget>> _budgetBarKey = GlobalKey();
+  int _budgetRefreshKey = 0;
 
   @override
   void initState() {
@@ -77,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _summary = data;
       _selectedDayItems = [];
       _selectedDateLabel = null;
+      _budgetRefreshKey++;
     });
   }
 
@@ -101,9 +102,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           BudgetBarWidget(
-            key: _budgetBarKey,
             isWeekly: true,
             onSettingsChanged: _refreshData,
+            refreshKey: _budgetRefreshKey,
           ),
           RepaintBoundary(
             child: WeeklyBarChart(summaryData: _summary, onBarTap: _loadDailyDetails),

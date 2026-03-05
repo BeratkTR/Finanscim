@@ -6,6 +6,7 @@ class BudgetBarWidget extends StatefulWidget {
   final VoidCallback? onSettingsChanged;
   final int? year;
   final int? month;
+  final int refreshKey;
 
   const BudgetBarWidget({
     super.key,
@@ -13,6 +14,7 @@ class BudgetBarWidget extends StatefulWidget {
     this.onSettingsChanged,
     this.year,
     this.month,
+    this.refreshKey = 0,
   });
 
   @override
@@ -36,7 +38,9 @@ class _BudgetBarWidgetState extends State<BudgetBarWidget> {
   @override
   void didUpdateWidget(BudgetBarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.year != widget.year || oldWidget.month != widget.month) {
+    if (oldWidget.year != widget.year || 
+        oldWidget.month != widget.month ||
+        oldWidget.refreshKey != widget.refreshKey) {
       _loadData();
     }
   }
